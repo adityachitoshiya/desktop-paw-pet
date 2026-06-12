@@ -1,0 +1,90 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  background: transparent !important;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.desktop-pet-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background: transparent;
+  cursor: default;
+  -webkit-app-region: no-drag;
+}
+
+.desktop-pet-container.draggable {
+  cursor: grab;
+  -webkit-app-region: drag;
+}
+
+.desktop-pet-container.draggable:active {
+  cursor: grabbing;
+}
+
+.status-badge {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'SF Mono', 'Menlo', monospace;
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  white-space: nowrap;
+  z-index: 10;
+}
+
+.desktop-pet-container:hover .status-badge {
+  opacity: 1;
+}
+
+.status-badge.idle {
+  color: #8be9fd;
+}
+
+.status-badge.typing {
+  color: #50fa7b;
+}
+
+.status-badge.swiping {
+  color: #ff79c6;
+}
+
+.click-through-indicator {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'SF Mono', 'Menlo', monospace;
+  font-size: 8px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(255, 121, 198, 0.8);
+  color: #fff;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  white-space: nowrap;
+}
+
+.desktop-pet-container:hover .click-through-indicator.visible {
+  opacity: 1;
+}

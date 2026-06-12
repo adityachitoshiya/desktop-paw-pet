@@ -1,0 +1,51 @@
+{
+  "name": "desktop-paw-pet",
+  "version": "1.0.0",
+  "description": "A transparent, interactive virtual desktop pet app for macOS featuring a cute 2D cat",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "build:mac": "electron-vite build && electron-builder --mac",
+    "build:win": "electron-vite build && electron-builder --win",
+    "preview": "electron-vite preview",
+    "postinstall": "electron-vite build || true",
+    "rebuild": "electron-rebuild -f -w uiohook-napi",
+    "rebuild:new": "npx @electron/rebuild -f -w uiohook-napi"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "uiohook-napi": "^1.5.0"
+  },
+  "devDependencies": {
+    "@electron-toolkit/preload": "^3.0.0",
+    "@electron/rebuild": "^4.0.4",
+    "@vitejs/plugin-react": "^4.4.0",
+    "electron": "^35.0.0",
+    "electron-builder": "^26.15.2",
+    "electron-rebuild": "^3.2.9",
+    "electron-vite": "^3.0.0"
+  },
+  "build": {
+    "appId": "com.desktoppawpet.app",
+    "productName": "Desktop Paw-Pet",
+    "mac": {
+      "category": "public.app-category.entertainment",
+      "target": "zip",
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "asarUnpack": [
+      "node_modules/uiohook-napi/**"
+    ],
+    "files": [
+      "out/**/*",
+      "node_modules/uiohook-napi/**"
+    ]
+  }
+}
