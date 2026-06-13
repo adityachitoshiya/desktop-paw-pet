@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
-    "build:mac": "electron-vite build && electron-builder --mac",
-    "build:win": "electron-vite build && electron-builder --win",
+    "build:mac": "electron-vite build && electron-builder --mac -c.publish=never",
+    "build:win": "electron-vite build && electron-builder --win -c.publish=never",
     "preview": "electron-vite preview",
     "postinstall": "electron-vite build || true",
     "rebuild": "electron-rebuild -f -w uiohook-napi",
