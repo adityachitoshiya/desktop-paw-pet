@@ -61,7 +61,7 @@ export const THEMES = {
   }
 };
 
-export const FRAME_COUNTS = { idle: 8, typing: 6, swiping: 4, walking: 4, eating: 6 };
+export const FRAME_COUNTS = { idle: 8, typing: 6, swiping: 4, walking: 4, eating: 6, sitting: 8, sleeping: 8, running: 4, scanning: 8, sneaking: 4 };
 
 // 34 x 28
 const CAT_BASE = [

@@ -20,10 +20,10 @@ function createWindow() {
   const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
 
   mainWindow = new BrowserWindow({
-    width: 200,
-    height: 200,
-    x: screenWidth - 260,
-    y: screenHeight - 240,
+    width: 250,
+    height: 250,
+    x: screenWidth - 310,
+    y: screenHeight - 290,
     transparent: true,
     frame: false,
     hasShadow: false,
@@ -127,7 +127,7 @@ ipcMain.handle('UPDATE_SETTINGS', (event, newSettings) => {
   
   if (newSettings.size !== undefined && newSettings.size !== oldSize && mainWindow) {
     const pxSize = 5 * appSettings.size;
-    const newCanvasSize = Math.ceil(40 * pxSize);
+    const newCanvasSize = Math.ceil(50 * pxSize);
     
     const bounds = mainWindow.getBounds();
     const x = bounds.x + (bounds.width - newCanvasSize) / 2;
@@ -221,7 +221,10 @@ app.on('before-quit', () => {
 });
 
 app.on('window-all-closed', () => {
-  app.quit();
+  // Don't quit if only settings closed — mainWindow is the pet overlay
+  if (!mainWindow) {
+    app.quit();
+  }
 });
 
 // Hide dock icon — this is a background/overlay app

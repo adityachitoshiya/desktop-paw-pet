@@ -1,8 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
 import { isInProximity } from '../utils/geometry';
 
-const TYPING_DEBOUNCE_MS = 300;
+const TYPING_DEBOUNCE_MS = 400;
 const PROXIMITY_THRESHOLD = 80;
+
+// Autonomous actions the cat can randomly perform
+const AUTO_ACTIONS = [
+  { state: 'sitting',  duration: 4000 },  // Sit for 4s
+  { state: 'sleeping', duration: 6000 },  // Sleep for 6s
+  { state: 'running',  duration: 2000 },  // Sprint for 2s
+  { state: 'scanning', duration: 2500 },  // Look around 2.5s
+  { state: 'sneaking', duration: 3000 },  // Stealth prowl 3s
+];
 
 export function useCatState({ lastKeyTime, mousePos, windowBounds, settings, screenSize }) {
   const [state, setState] = useState('idle'); 
@@ -13,33 +22,49 @@ export function useCatState({ lastKeyTime, mousePos, windowBounds, settings, scr
   const walkingTimerRef = useRef(null);
   const roamDecideIntervalRef = useRef(null);
   const walkLoopRef = useRef(null);
+  const autoActionTimerRef = useRef(null);
   const posRef = useRef({ x: 0, y: 0 });
+  const stateRef = useRef(state);
+  const directionRef = useRef(direction);
 
-  // Sync internal position when not walking
+  // Keep refs in sync
+  useEffect(() => { stateRef.current = state; }, [state]);
+  useEffect(() => { directionRef.current = direction; }, [direction]);
+
+  // Sync internal position when not walking/running
   useEffect(() => {
-    if (state !== 'walking') {
+    if (state !== 'walking' && state !== 'running') {
       posRef.current = { x: windowBounds.x, y: windowBounds.y };
     }
   }, [windowBounds.x, windowBounds.y, state]);
+
+  // Helper: cancel all timers
+  const cancelAll = () => {
+    if (walkingTimerRef.current) clearTimeout(walkingTimerRef.current);
+    if (walkLoopRef.current) cancelAnimationFrame(walkLoopRef.current);
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    if (autoActionTimerRef.current) clearTimeout(autoActionTimerRef.current);
+  };
 
   // 1. Feeding priority (Highest)
   useEffect(() => {
     if (!window.desktopPet) return;
     const cleanup = window.desktopPet.onFeedCat(() => {
+      cancelAll();
       setState('eating');
-      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-      if (walkingTimerRef.current) clearTimeout(walkingTimerRef.current);
       
       setTimeout(() => {
         setState((prev) => prev === 'eating' ? 'idle' : prev);
-      }, 5000); // Eat for 5 seconds
+      }, 5000);
     });
     return cleanup;
   }, []);
 
   // 2. Swiping priority
   useEffect(() => {
-    if (!windowBounds || windowBounds.width === 0 || state === 'eating') return;
+    if (!windowBounds || windowBounds.width === 0) return;
+    if (stateRef.current === 'eating') return;
+
     const inProximity = isInProximity(mousePos, windowBounds, PROXIMITY_THRESHOLD);
     if (inProximity) {
       const centerX = windowBounds.x + windowBounds.width / 2;
@@ -47,95 +72,143 @@ export function useCatState({ lastKeyTime, mousePos, windowBounds, settings, scr
       const angle = Math.atan2(mousePos.y - centerY, mousePos.x - centerX);
       setCursorAngle(angle);
       setDirection(mousePos.x > centerX ? 1 : -1);
-      setState('swiping');
-    } else if (state === 'swiping') {
+      
+      if (stateRef.current !== 'eating') {
+        cancelAll();
+        setState('swiping');
+      }
+    } else if (stateRef.current === 'swiping') {
       setState('idle');
     }
-  }, [mousePos, windowBounds]);
+  }, [mousePos.x, mousePos.y, windowBounds.x, windowBounds.y, windowBounds.width, windowBounds.height]);
 
   // 3. Typing priority
   useEffect(() => {
-    if (lastKeyTime === 0 || state === 'swiping' || state === 'eating') return;
+    if (lastKeyTime === 0) return;
+    if (stateRef.current === 'swiping' || stateRef.current === 'eating') return;
+    
+    // Don't interrupt sleeping/sitting with typing
+    if (stateRef.current === 'sleeping') return;
+    
     setState('typing');
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     typingTimerRef.current = setTimeout(() => {
       setState((prev) => (prev === 'typing' ? 'idle' : prev));
     }, TYPING_DEBOUNCE_MS);
+    
     return () => clearTimeout(typingTimerRef.current);
   }, [lastKeyTime]);
 
-  // 4. Roaming Brain
+  // 4. Autonomous Behavior Brain — random idle actions
   useEffect(() => {
-    if (!settings.isRoaming || state === 'swiping' || state === 'typing' || state === 'eating') {
-      if (state === 'walking') setState('idle');
+    if (!settings.isRoaming) {
+      if (['walking', 'running', 'sitting', 'sleeping', 'scanning', 'sneaking'].includes(stateRef.current)) {
+        setState('idle');
+      }
       return;
     }
 
     roamDecideIntervalRef.current = setInterval(() => {
-      // 30% chance to start walking if currently idle
-      if (state === 'idle' && Math.random() < 0.3) {
-        setState('walking');
-        // Pick a random direction
-        const dir = Math.random() > 0.5 ? 1 : -1;
-        
-        // Prevent walking off screen
+      const cur = stateRef.current;
+      if (cur !== 'idle') return;
+
+      const roll = Math.random();
+      
+      if (roll < 0.25) {
+        // Walk
+        let dir = Math.random() > 0.5 ? 1 : -1;
         const margin = 100;
-        if (dir === 1 && posRef.current.x > screenSize.width - windowBounds.width - margin) {
-          setDirection(-1);
-        } else if (dir === -1 && posRef.current.x < margin) {
-          setDirection(1);
-        } else {
+        if (dir === 1 && posRef.current.x > screenSize.width - windowBounds.width - margin) dir = -1;
+        else if (dir === -1 && posRef.current.x < margin) dir = 1;
+        
+        setDirection(dir);
+        setState('walking');
+        
+        if (walkingTimerRef.current) clearTimeout(walkingTimerRef.current);
+        walkingTimerRef.current = setTimeout(() => {
+          setState((prev) => prev === 'walking' ? 'idle' : prev);
+        }, 2000 + Math.random() * 3000);
+      } else if (roll < 0.65) {
+        // Random autonomous action (sit, sleep, scan, sneak, run)
+        const action = AUTO_ACTIONS[Math.floor(Math.random() * AUTO_ACTIONS.length)];
+        
+        // Running needs direction
+        if (action.state === 'running') {
+          let dir = Math.random() > 0.5 ? 1 : -1;
+          const margin = 100;
+          if (dir === 1 && posRef.current.x > screenSize.width - windowBounds.width - margin) dir = -1;
+          else if (dir === -1 && posRef.current.x < margin) dir = 1;
           setDirection(dir);
         }
-
-        // Stop walking after 2-5 seconds
-        walkingTimerRef.current = setTimeout(() => {
-          setState('idle');
-        }, 2000 + Math.random() * 3000);
+        
+        setState(action.state);
+        
+        if (autoActionTimerRef.current) clearTimeout(autoActionTimerRef.current);
+        autoActionTimerRef.current = setTimeout(() => {
+          setState((prev) => prev === action.state ? 'idle' : prev);
+        }, action.duration);
       }
+      // else: stay idle (35% chance to just chill)
     }, 3000);
 
     return () => {
       if (roamDecideIntervalRef.current) clearInterval(roamDecideIntervalRef.current);
       if (walkingTimerRef.current) clearTimeout(walkingTimerRef.current);
+      if (autoActionTimerRef.current) clearTimeout(autoActionTimerRef.current);
     };
-  }, [state, settings.isRoaming, screenSize.width, windowBounds.width]);
+  }, [settings.isRoaming, screenSize.width, windowBounds.width]);
 
-  // Walking Physical Movement Loop
+  // Walking/Running Physical Movement Loop
   useEffect(() => {
-    if (state === 'walking') {
-      let lastTime = performance.now();
-      let accDx = 0;
-
-      const walkStep = (time) => {
-        const dt = time - lastTime;
-        if (dt > 30) { // ~30 fps movement for smooth roaming
-          lastTime = time;
-          const speed = settings.speed || 2;
-          const dx = direction * speed;
-          
-          accDx += dx;
-          posRef.current.x += dx;
-          
-          // Send move command to main process via fast IPC message
-          window.desktopPet.moveWindow(Math.round(accDx), 0);
-          accDx -= Math.round(accDx); // keep fractional part
-          
-          // Screen bounds check
-          if (posRef.current.x <= 0 || posRef.current.x >= screenSize.width - windowBounds.width) {
-             setDirection(d => -d);
-          }
-        }
-        walkLoopRef.current = requestAnimationFrame(walkStep);
-      };
-      walkLoopRef.current = requestAnimationFrame(walkStep);
-    } else {
+    if (state !== 'walking' && state !== 'running') {
       if (walkLoopRef.current) cancelAnimationFrame(walkLoopRef.current);
+      walkLoopRef.current = null;
+      return;
     }
-    return () => {
-      if (walkLoopRef.current) cancelAnimationFrame(walkLoopRef.current);
+
+    let lastTime = performance.now();
+    let accDx = 0;
+    let running = true;
+
+    const walkStep = (time) => {
+      if (!running) return;
+      
+      const dt = time - lastTime;
+      if (dt > 30) {
+        lastTime = time;
+        const baseSpeed = settings.speed || 2;
+        const speed = state === 'running' ? baseSpeed * 2.5 : baseSpeed;
+        const dir = directionRef.current;
+        const dx = dir * speed;
+        
+        accDx += dx;
+        posRef.current.x += dx;
+        
+        const roundedDx = Math.round(accDx);
+        if (roundedDx !== 0) {
+          window.desktopPet.moveWindow(roundedDx, 0);
+          accDx -= roundedDx;
+        }
+        
+        if (posRef.current.x <= 0) {
+          posRef.current.x = 0;
+          setDirection(1);
+        } else if (posRef.current.x >= screenSize.width - windowBounds.width) {
+          posRef.current.x = screenSize.width - windowBounds.width;
+          setDirection(-1);
+        }
+      }
+      walkLoopRef.current = requestAnimationFrame(walkStep);
     };
-  }, [state, direction, settings.speed, screenSize.width, windowBounds.width]);
+    
+    walkLoopRef.current = requestAnimationFrame(walkStep);
+    
+    return () => {
+      running = false;
+      if (walkLoopRef.current) cancelAnimationFrame(walkLoopRef.current);
+      walkLoopRef.current = null;
+    };
+  }, [state, settings.speed, screenSize.width, windowBounds.width]);
 
   return { state, cursorAngle, direction };
 }
