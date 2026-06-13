@@ -95,6 +95,7 @@ export default function Settings() {
             <option value="ash">Ash (Grey)</option>
             <option value="mocha">Mocha (Brown)</option>
             <option value="oreo">Oreo Cat (Aichan)</option>
+            <option value="aero">Aero Cat (Brown)</option>
           </select>
         </label>
       </div>

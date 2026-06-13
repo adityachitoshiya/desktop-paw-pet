@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import { drawIdle, drawTyping, drawSwiping, drawWalking, drawEating, FRAME_COUNTS } from '../sprites/CatSprites';
 import oreoCatImgUrl from '../assets/oreo_cat.png';
+import aeroCatImgUrl from '../assets/aero_cat_clean.png';
 
 const TARGET_FPS = 12;
 const FRAME_INTERVAL = 1000 / TARGET_FPS;
@@ -32,6 +33,19 @@ const OREO_ANIMATIONS = {
   sneaking: { row: 11, frames: 6 },   // Stealth
 };
 
+const AERO_ANIMATIONS = {
+  idle:     { row: 0, frames: 6 },
+  walking:  { row: 1, frames: 6 },
+  running:  { row: 2, frames: 6 },
+  swiping:  { row: 3, frames: 6 },
+  eating:   { row: 4, frames: 6 },
+  sneaking: { row: 5, frames: 6 }, // Using ANGRY for sneaking
+  sleeping: { row: 6, frames: 6 },
+  typing:   { row: 7, frames: 6 }, // Using PLAY for typing/jumping
+  sitting:  { row: 0, frames: 6 }, // Fallback to IDLE
+  scanning: { row: 0, frames: 6 }, // Fallback to IDLE
+};
+
 export default function CatCanvas({ state, cursorAngle, direction, clickThrough, settings }) {
   const canvasRef = useRef(null);
   const frameRef = useRef(0);
@@ -40,6 +54,8 @@ export default function CatCanvas({ state, cursorAngle, direction, clickThrough,
   const prevStateRef = useRef(state);
   const oreoImgRef = useRef(null);
   const oreoLoadedRef = useRef(false);
+  const aeroImgRef = useRef(null);
+  const aeroLoadedRef = useRef(false);
 
   // Store ALL changing props in refs so animate() never needs to be recreated
   const stateRef = useRef(state);
@@ -59,13 +75,20 @@ export default function CatCanvas({ state, cursorAngle, direction, clickThrough,
   useEffect(() => { directionRef.current = direction; }, [direction]);
   useEffect(() => { settingsRef.current = settings; }, [settings]);
 
-  // Preload Oreo sprite sheet once
+  // Preload sprite sheets once
   useEffect(() => {
-    const img = new Image();
-    img.src = oreoCatImgUrl;
-    img.onload = () => {
-      oreoImgRef.current = img;
+    const imgOreo = new Image();
+    imgOreo.src = oreoCatImgUrl;
+    imgOreo.onload = () => {
+      oreoImgRef.current = imgOreo;
       oreoLoadedRef.current = true;
+    };
+    
+    const imgAero = new Image();
+    imgAero.src = aeroCatImgUrl;
+    imgAero.onload = () => {
+      aeroImgRef.current = imgAero;
+      aeroLoadedRef.current = true;
     };
   }, []);
 
@@ -111,19 +134,23 @@ export default function CatCanvas({ state, cursorAngle, direction, clickThrough,
         ctx.scale(-1, 1);
       }
 
-      if (themeId === 'oreo' && oreoLoadedRef.current && oreoImgRef.current) {
-        const img = oreoImgRef.current;
+      const isOreo = themeId === 'oreo' && oreoLoadedRef.current && oreoImgRef.current;
+      const isAero = themeId === 'aero' && aeroLoadedRef.current && aeroImgRef.current;
+
+      if (isOreo || isAero) {
+        const img = isOreo ? oreoImgRef.current : aeroImgRef.current;
         
-        const strideX = 33;
-        const strideY = 32;
-        const spriteW = 32;
-        const spriteH = 32;
+        const strideX = isOreo ? 33 : 100;
+        const strideY = isOreo ? 32 : 100;
+        const spriteW = isOreo ? 32 : 100;
+        const spriteH = isOreo ? 32 : 100;
         
-        const dSize = Math.floor(canvasSize * 0.75);
+        const dSize = Math.floor(canvasSize * (isOreo ? 0.75 : 0.95));
         const dx = Math.floor((canvasSize - dSize) / 2);
-        const dy = Math.floor((canvasSize - dSize) / 2) + Math.floor(canvasSize * 0.03);
+        const dy = Math.floor((canvasSize - dSize) / 2) + Math.floor(canvasSize * (isOreo ? 0.03 : 0.0));
         
-        const anim = OREO_ANIMATIONS[currentState] || OREO_ANIMATIONS.idle;
+        const animations = isOreo ? OREO_ANIMATIONS : AERO_ANIMATIONS;
+        const anim = animations[currentState] || animations.idle;
         const frame = frameRef.current % anim.frames;
         
         const sx = frame * strideX;
@@ -131,8 +158,8 @@ export default function CatCanvas({ state, cursorAngle, direction, clickThrough,
         
         ctx.drawImage(img, sx, sy, spriteW, spriteH, dx, dy, dSize, dSize);
         
-        // Fish for eating state
-        if (currentState === 'eating') {
+        // Fish for eating state (only for Oreo for now)
+        if (currentState === 'eating' && isOreo) {
           const fx = dx + dSize * 0.55;
           const fy = dy + dSize * 0.85;
           const s = Math.max(2, Math.floor(pxSize * 0.8));
